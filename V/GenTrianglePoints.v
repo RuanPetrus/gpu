@@ -96,8 +96,8 @@ module GenTrianglePoints(
 	  else if (state == `S_ORDER)   next_state = `S_INIT_EQ;
 	  else if (state == `S_INIT_EQ) next_state = `S_FIND_POINT;
 	  else if (state == `S_FIND_POINT) begin
-		 if (y >= maxy) next_state = `S_IDLE;
-		 else           next_state = `S_FIND_POINT;
+		 if (x +1 == maxx && y + 1 == maxy) next_state = `S_IDLE;
+		 else                               next_state = `S_FIND_POINT;
 	  end
 	  else next_state = state;
    end
@@ -110,7 +110,7 @@ module GenTrianglePoints(
 
    always @(*) begin
 	  // Done
-	  if (state == `S_IDLE || (state == `S_FIND_POINT && y >= maxy))
+	  if (state == `S_IDLE || (state == `S_FIND_POINT && x +1 == maxx && y + 1 == maxy))
 		next_o_done = 1;
 	  else next_o_done = 0;
 
@@ -177,7 +177,7 @@ module GenTrianglePoints(
 		 next_eq2x = eq2init;
 		 next_eq3x = eq3init;
 	  end
-	  else if (state == `S_FIND_POINT && x >= maxx) begin
+	  else if (state == `S_FIND_POINT && x + 1 == maxx) begin
 		 next_x = minx;
 		 next_y = y + 1;
 

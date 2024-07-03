@@ -23,9 +23,9 @@ std::vector<uint32_t> circuit_points(
 	Verilated::commandArgs(argc, argv);
 	VGenTrianglePoints *tb = new VGenTrianglePoints;
 
-	uint64_t v1 = (((uint64_t) y1) << 32) | ((uint32_t) x1);
-	uint64_t v2 = (((uint64_t) y2) << 32) | ((uint32_t) x2);
-	uint64_t v3 = (((uint64_t) y3) << 32) | ((uint32_t) x3);
+	uint64_t v1 = ((uint64_t) ((uint32_t) y1) << 32) | ((uint32_t) x1);
+	uint64_t v2 = ((uint64_t) ((uint32_t) y2) << 32) | ((uint32_t) x2);
+	uint64_t v3 = ((uint64_t) ((uint32_t) y3) << 32) | ((uint32_t) x3);
 
 	fprintf(stderr, "v1: %lx\n", v1);
 	fprintf(stderr, "v2: %lx\n", v2);
@@ -144,12 +144,12 @@ std::vector<uint32_t> algorithm_points(int32_t x1, int32_t x2, int32_t x3,
 
 int main(int argc, char **argv) {
 	int32_t x1 = -10.0f * 16.0f;
-	int32_t x2 = 50.0f * 16.0f;
+	int32_t x2 = 1000 * 16.0f;
 	int32_t x3 = -10.0f * 16.0f;
 
-	int32_t y1 = 10.0f * 16.0f;
-	int32_t y2 = 10.0f * 16.0f;
-	int32_t y3 = 50.0f * 16.0f;
+	int32_t y1 = -10.0f * 16.0f;
+	int32_t y2 = -10.0f * 16.0f;
+	int32_t y3 = 1000 * 16.0f;
 
 	std::vector<uint32_t> cp = circuit_points(argc, argv, x1, x2, x3,
 											   y1, y2, y3);
@@ -173,6 +173,7 @@ int main(int argc, char **argv) {
 
 	assert(cp.size() == ap.size());
 	for (int i = 0; i < (int)ap.size(); i++) assert(ap[i] == cp[i]);
+	fprintf(stdout, "TEST PASSED: All points are equal\n");
 
 	return 0;
 }
