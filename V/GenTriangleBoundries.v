@@ -1,14 +1,21 @@
 `default_nettype none
 
 `define SH 0 // Waiting
-`define SI 1 // Initial
-`define SLX 2
-`define SRX 3
+`define SS 1 // Setup state
+`define SO 2 // Ordering state
+`define SI 3 // Initial
+`define SLX 4
+`define SRX 5
+
+`define SS_TIME 10
+`define SO_TIME 10
+`define SI_TIME 10
+`define SLX_TIME 10
 
 // TODO(ruan): Add check and state for FULL FIFO
 // TODO(ruan): Boundries
 
-module lr_gen(
+module GenTriangleBoundries(
 			  input wire		 clk,
 			  input wire		 start,
 			  input wire [63:0]	 v1, // Two 16 bits floats
@@ -49,6 +56,9 @@ module lr_gen(
    reg signed [31:0]			 next_x, next_y;
    reg [3:0]					 next_state;
    reg							 next_doner, next_fifo_writer;
+
+   reg [3:0]					 waiting;
+   reg [3:0]					 next_waiting;
 
    initial begin
       state = `SH;
@@ -108,7 +118,7 @@ module lr_gen(
    assign eq2yinc = eq2y + fdx32;
    assign eq3yinc = eq3y + fdx13;
 
-   assign order_expr = (y2 - y1) * (x3 - x2) - (x2 - x1) * (y3 - y2) > 0;
+   assign order_expr = (y2w - y1w) * (x3w - x2w) - (x2w - x1w) * (y3w - y2w) > 0;
    assign eq1init = dx21*((miny << 4) - y1) - dy21 * ((minx << 4) - x1);
    assign eq2init = dx32*((miny << 4) - y2) - dy32 * ((minx << 4) - x2);
    assign eq3init = dx13*((miny << 4) - y3) - dy13 * ((minx << 4) - x3);
@@ -117,7 +127,9 @@ module lr_gen(
 
    // State related logic
    always @(*)  begin
-	  if      (state == `SI) next_state = `SLX;
+	  if (state == `SS)         next_state = `SO;
+	  else if (state == `SO)         next_state = `SI;
+	  else if (state == `SI)    next_state = `SLX;
 	  else if (state == `SLX) begin
 		 if      (y >= maxy)    next_state = `SH;
 		 else if (point_inside) next_state = `SRX;
@@ -130,33 +142,51 @@ module lr_gen(
 	  else next_state = state;
    end
 
+   // Waiting
+   always @(*) begin
+	  if (waiting == 0 && state == `SS)       next_waiting = `SO_TIME;
+	  else if (waiting == 0 && state == `SO)  next_waiting = `SI_TIME;
+	  else if (waiting == 0 && state == `SI)  next_waiting = `SLX_TIME;
+	  else if (waiting == 0) next_waiting = 0;
+	  else next_waiting = waiting - 1;
+   end
 
    always @(*) begin
 	  // Done related logic
 	  if (state == `SLX && y >= maxy) next_doner = 1;
-	  else if (state == `SH)               next_doner = 0;
 	  else                            next_doner = 0;
+
 	  // Fifo write related logic
 	  if      (state == `SLX && point_inside)                next_fifo_writer = 1;
 	  else if (state == `SRX && !(point_inside && x < maxx)) next_fifo_writer = 1;
 	  else                                                   next_fifo_writer = 0;
    end 
 
-   // xs and ys related logic
+   // xs and ys related logic ordering
    always @(*) begin
-	  next_x1 = x1w;
-	  next_y1 = y1w;
-	  if (order_expr) begin
-		 next_x2 = x3w;
-		 next_x3 = x2w;
-		 next_y2 = y3w;
-		 next_y3 = y2w;
+	  if (state == `SS) begin
+		next_x1 = x1w;
+		next_y1 = y1w;
+		if (order_expr) begin
+			next_x2 = x3w;
+			next_x3 = x2w;
+			next_y2 = y3w;
+			next_y3 = y2w;
+		end
+		else begin
+			next_x2 = x2w;
+			next_x3 = x3w;
+			next_y2 = y2w;
+			next_y3 = y3w;
+		end
 	  end
 	  else begin
-		 next_x2 = x2w;
-		 next_x3 = x3w;
-		 next_y2 = y2w;
-		 next_y3 = y3w;
+		next_x1 = x1;
+		next_y1 = y1;
+		next_x2 = x2;
+		next_y2 = y2;
+		next_x3 = x3;
+		next_y3 = y3;
 	  end
    end
 
@@ -187,7 +217,8 @@ module lr_gen(
 		 next_eq2x = eq2yinc;
 		 next_eq3x = eq3yinc;
 	  end
-	  else begin
+	  else if ((state == `SLX) ||
+               (state == `SRX)) begin
 		 next_x = x + 1;
 		 next_y = y;
 
@@ -198,6 +229,18 @@ module lr_gen(
 		 next_eq1x = eq1xinc;
 		 next_eq2x = eq2xinc;
 		 next_eq3x = eq3xinc;
+	  end
+	  else begin
+		 next_x = x;
+		 next_y = y;
+
+		 next_eq1y = eq1y;
+		 next_eq2y = eq2y;
+		 next_eq3y = eq3y;
+
+		 next_eq1x = eq1x;
+		 next_eq2x = eq2x;
+		 next_eq3x = eq3x;
 	  end
    end
 
@@ -213,33 +256,36 @@ module lr_gen(
    end
 
    always @(posedge clk) begin
-	  state <= next_state;
-	  doner <= next_doner;
-	  fifo_writer <= next_fifo_writer;
+	  waiting <= next_waiting;
+	  if (waiting == 0) begin
+		state <= next_state;
+		doner <= next_doner;
+		fifo_writer <= next_fifo_writer;
 
-	  x1 <= next_x1;
-	  x2 <= next_x2;
-	  x3 <= next_x3;
-	  y1 <= next_y1;
-	  y2 <= next_y2;
-	  y3 <= next_y3;
+		x1 <= next_x1;
+		x2 <= next_x2;
+		x3 <= next_x3;
+		y1 <= next_y1;
+		y2 <= next_y2;
+		y3 <= next_y3;
 
-	  x <= next_x;
-	  y <= next_y;
+		x <= next_x;
+		y <= next_y;
 
-	  eq1y <= next_eq1y;
-	  eq2y <= next_eq2y;
-	  eq3y <= next_eq3y;
+		eq1y <= next_eq1y;
+		eq2y <= next_eq2y;
+		eq3y <= next_eq3y;
 
-	  eq1x <= next_eq1x;
-	  eq2x <= next_eq2x;
-	  eq3x <= next_eq3x;
+		eq1x <= next_eq1x;
+		eq2x <= next_eq2x;
+		eq3x <= next_eq3x;
 
-	  lastx <= next_lastx;
-	  pr <= next_pr;
-
+		lastx <= next_lastx;
+		pr <= next_pr;
+	  end
       if (s) begin
-		 state <= `SI;
+		 state <= `SS;
+		 waiting <= `SS_TIME;
 		 doner <= 0;
 		 fifo_writer <= 0;
       end
