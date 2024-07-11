@@ -11,45 +11,43 @@
 
 module GenTrianglePoints(
 						 i_clk, i_start, i_v1, i_v2, i_v3,
-						 o_write, o_done, o_point,
-						 state, x, y
+						 o_write, o_done, o_point
 );
    parameter SCREEN_WIDTH = 640;
    parameter SCREEN_HEIGHT = 480;
 
-   input		 i_clk, i_start;
-   input [63:0]	 i_v1, i_v2, i_v3; // {y, x} fixed_point, 28:4 bits each
-   output reg	 o_write, o_done;
-   output reg [31:0] o_point;
-   // {y, x} int 16 bits each
+   input	 i_clk, i_start;
+   input [63:0]	i_v1, i_v2, i_v3; // {y, x} fixed_point, 28:4 bits each
+   output reg	o_write, o_done;
+   output reg [31:0] o_point; // {y, x} int 16 bits each
 
-   reg signed [31:0]				  x1, x2, x3;
-   reg signed [31:0]				  y1, y2, y3;
-   reg signed [31:0]				  next_x1, next_x2, next_x3;
-   reg signed [31:0]				  next_y1, next_y2, next_y3;
-   wire								  order_expr;
+   reg signed [31:0] x1, x2, x3;
+   reg signed [31:0] y1, y2, y3;
+   reg signed [31:0] next_x1, next_x2, next_x3;
+   reg signed [31:0] next_y1, next_y2, next_y3;
+   wire				 order_expr;
 
-   output reg [3:0]						  state;
-   reg [3:0]						  next_state;
+   reg [3:0]		 state;
+   reg [3:0]		 next_state;
 
-   wire								  point_inside;
-   reg								  next_o_write;
-   reg								  next_o_done;
-   reg [31:0]						  next_o_point;
+   wire				 point_inside;
+   reg				 next_o_write;
+   reg				 next_o_done;
+   reg [31:0]		 next_o_point;
 
-   wire signed [31:0]				  minxf, minyf, maxxf, maxyf;
-   wire signed [31:0]				  minx, miny, maxx, maxy;
-   wire signed [31:0]				  dx21, dx32, dx13, dy21, dy32, dy13;
-   wire signed [31:0]				  fdx21, fdx32, fdx13, fdy21, fdy32, fdy13;
-   wire signed [31:0]				  eq1init, eq2init, eq3init;
-   wire signed [31:0]				  eq1xinc, eq2xinc, eq3xinc;
-   wire signed [31:0]				  eq1yinc, eq2yinc, eq3yinc;
+   wire signed [31:0] minxf, minyf, maxxf, maxyf;
+   wire signed [31:0] minx, miny, maxx, maxy;
+   wire signed [31:0] dx21, dx32, dx13, dy21, dy32, dy13;
+   wire signed [31:0] fdx21, fdx32, fdx13, fdy21, fdy32, fdy13;
+   wire signed [31:0] eq1init, eq2init, eq3init;
+   wire signed [31:0] eq1xinc, eq2xinc, eq3xinc;
+   wire signed [31:0] eq1yinc, eq2yinc, eq3yinc;
 
-   reg signed [31:0]				  eq1y, eq2y, eq3y, eq1x, eq2x, eq3x;
-   reg signed [31:0]				  next_eq1y, next_eq2y, next_eq3y, next_eq1x, next_eq2x, next_eq3x;
+   reg signed [31:0]  eq1y, eq2y, eq3y, eq1x, eq2x, eq3x;
+   reg signed [31:0]  next_eq1y, next_eq2y, next_eq3y, next_eq1x, next_eq2x, next_eq3x;
 
-   output reg signed [31:0]				  x, y;
-   reg signed [31:0]				  next_x, next_y;
+   reg signed [31:0]  x, y;
+   reg signed [31:0]  next_x, next_y;
 
    always @(posedge i_clk) begin
 	  state <= next_state;

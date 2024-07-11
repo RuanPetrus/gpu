@@ -52,10 +52,10 @@ std::vector<uint32_t> circuit_points(
 		fprintf(stderr, "Fifo point x: %d\n", (tb->o_point & 0xFFFF));
 		fprintf(stderr, "Fifo point y: %d\n", (tb->o_point >> 16));
 
-		fprintf(stderr, "-------- Debug outputs -------\n");
-		fprintf(stderr, "state: %d\n",       tb->state);
-		fprintf(stderr, "x: %d\n",       (int32_t) tb->x);
-		fprintf(stderr, "y: %d\n",       (int32_t) tb->y);
+		// fprintf(stderr, "-------- Debug outputs -------\n");
+		// fprintf(stderr, "state: %d\n",       tb->state);
+		// fprintf(stderr, "x: %d\n",       (int32_t) tb->x);
+		// fprintf(stderr, "y: %d\n",       (int32_t) tb->y);
 
 		fprintf(stderr, "\n");
 
@@ -143,13 +143,13 @@ std::vector<uint32_t> algorithm_points(int32_t x1, int32_t x2, int32_t x3,
 }
 
 int main(int argc, char **argv) {
-	int32_t x1 = -10.0f * 16.0f;
-	int32_t x2 = 1000 * 16.0f;
-	int32_t x3 = -10.0f * 16.0f;
+	int32_t x1 = 1.0f/4.0f * WINDOW_WIDTH * 16.0f;
+	int32_t x2 = 3.0f/4.0f * WINDOW_WIDTH * 16.0f;
+	int32_t x3 = 2.0f/4.0f * WINDOW_WIDTH * 16.0f;
 
-	int32_t y1 = -10.0f * 16.0f;
-	int32_t y2 = -10.0f * 16.0f;
-	int32_t y3 = 1000 * 16.0f;
+	int32_t y1 = 3.0f/4.0f * WINDOW_HEIGHT * 16.0f;
+	int32_t y2 = 3.0f/4.0f * WINDOW_HEIGHT * 16.0f;
+	int32_t y3 = 1.0f/4.0f * WINDOW_HEIGHT * 16.0f;
 
 	std::vector<uint32_t> cp = circuit_points(argc, argv, x1, x2, x3,
 											   y1, y2, y3);
