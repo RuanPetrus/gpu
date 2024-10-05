@@ -21,28 +21,31 @@ f32 floorf(f32 x)
 	return (f32) (i32) x;
 }
 
-f32 _normalize_sinf(f32 x)
+f32 sinf(f32 x)
 {
-    x *= +0.1591549430919f;
-    x -= floorf(x + 0.5f);
-    x *= +6.2831853071796f;
-    return x;
+	return cosf(PI/2.0f - x);
 }
-
-f32 _normalize_cosf(f32 x)
+#define COS_NUMBER_ITERATION 6
+f32 cosf(f32 x)
 {
-    x *= +0.1591549430919f;
-    x -= floorf(x + 0.75f) - 0.25f;
-    x *= +6.2831853071796f;
-    return x;
-}
+	i32 div = (i32)(x/PI);
+	x = x - (div * PI);
+	i8 sign = 1;
+	if (div % 2 != 0)
+		sign = -1;
 
-f32 _faster_unnormedf(f32 x)
-{
-    x += -0.3183098861838f * x * __builtin_fabsf(x);
-    x += +0.3451140202480f * x * __builtin_fabsf(x);
-    return x;
+	f32 result = 1.0f;
+    f32 inter = 1.0f;
+    f32 num = x * x;
+    for (int i = 1; i <= COS_NUMBER_ITERATION; i++)
+    {
+        f32 comp = 2.0f * i;
+        f32 den = comp * (comp - 1.0f);
+        inter *= num / den;
+        if (i % 2 == 0)
+            result += inter;
+        else
+            result -= inter;
+    }
+	return sign * result;
 }
-
-inline f32 sinf(f32 x) { return _faster_unnormedf(_normalize_sinf(x)); }
-inline f32 cosf(f32 x) { return _faster_unnormedf(_normalize_cosf(x)); }

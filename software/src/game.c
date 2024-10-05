@@ -74,10 +74,12 @@ f32 modf32(f32 a, f32 b)
 }
 
 
+
 f32 linear_transform_op(f32 a, f32 b, f32 c, f32 d, Vec3 v) 
 {
 	return a*v.x + b*v.y + c*v.z + d;
 }
+
 
 LinearTransform linear_transform_mul(LinearTransform u, LinearTransform z) 
 {
@@ -115,6 +117,10 @@ Vec3 linear_transform_apply(LinearTransform u, Vec3 z)
 		linear_transform_op(u.ay, u.by, u.cy, u.dy, z),
 		linear_transform_op(u.az, u.bz, u.cz, u.dz, z)
 	};
+}
+
+MeshInstance mesh_create_instance(const Mesh mesh) {
+	return (MeshInstance){mesh, linear_transform_identity()};
 }
 
 i32 shift_right_round(i64 a, i32 b) 
@@ -262,6 +268,59 @@ Vec2 vec2_to_screen_space(Vec2 t) {
 PixelType colors[] = {GREEN, RED, BLUE, YELLOW, PURPLE, CYAN};
 u32 colors_count = sizeof(colors) / sizeof(*colors);
 
+// #include "data/triangle.c"
+// #include "data/triangle2.c"
+#include "data/tetraedro.c"
+// #include "data/cup.c"
+
+f32 t = PI/2.0f;
+void draw_mesh_test(canvas_ptr canvas, i32 *zbuffer)
+{
+
+	LinearTransform translation_transform = linear_transform_identity();
+	translation_transform.dz = 1.0f;
+
+	LinearTransform rotationy_transform = {
+		cosf(t),  0.0f, sinf(t), 0.0f,
+		0.0f,         1.0f, 0.0f,        0.0f,
+		-sinf(t), 0.0f, cosf(t), 0.0f
+	};
+
+	LinearTransform player_transform = linear_transform_mul(
+		translation_transform,
+		rotationy_transform
+	);
+
+	MeshInstance m = mesh_create_instance(tetraedro_mesh);
+	Vec3 *v = m.mesh.vert;
+
+	for (u32 i = 0; i < m.mesh.faces_count; i++) {
+		Face f = m.mesh.faces[i];
+		
+		LinearTransform transform = linear_transform_mul(m.transform, player_transform);
+
+		Vec3 tv1 = linear_transform_apply(transform, v[f.v1]);
+		Vec3 tv2 = linear_transform_apply(transform, v[f.v2]);
+		Vec3 tv3 = linear_transform_apply(transform, v[f.v3]);
+
+		f32 fz1 = tv1.z;
+		f32 fz2 = tv2.z;
+		f32 fz3 = tv3.z;
+
+		draw_triangle(
+			vec2_to_screen_space(vec3_project_to_2D(tv1)),
+			vec2_to_screen_space(vec3_project_to_2D(tv2)),
+			vec2_to_screen_space(vec3_project_to_2D(tv3)),
+			1.0f/fz1,
+			1.0f/fz2,
+			1.0f/fz3,
+			colors[i%colors_count],
+			zbuffer,
+			canvas
+	    );
+	}
+}
+
 void draw_mesh(GameState *game, canvas_ptr canvas, i32 *zbuffer)
 {
 	LinearTransform translation_transform = linear_transform_identity();
@@ -320,14 +379,7 @@ void draw_mesh(GameState *game, canvas_ptr canvas, i32 *zbuffer)
 	}
 }
 
-// #include "data/triangle.c"
-// #include "data/triangle2.c"
-#include "data/tetraedro.c"
-// #include "data/cup.c"
 
-MeshInstance mesh_create_instance(const Mesh mesh) {
-	return (MeshInstance){mesh, linear_transform_identity()};
-}
 
 void game_init(GameState *game) 
 {
@@ -371,5 +423,19 @@ void game_draw(GameState *game, canvas_ptr canvas)
 
 	for (int i= 0; i < WINDOW_WIDTH*WINDOW_HEIGHT; i++) zbuffer[i] = INV_FAR_PLANE;
 
+	game->player.rot.x = 0.0f;
+	game->player.rot.y = 0.0f;
+
 	draw_mesh(game, canvas, zbuffer);
+}
+
+void game_draw_test(canvas_ptr canvas) 
+{
+	for (int i = 0; i < WINDOW_HEIGHT; i++) 
+		for (int j = 0; j < WINDOW_WIDTH; j++)
+			canvas[i*WINDOW_STRIDE + j] = WHITE;
+
+	for (int i= 0; i < WINDOW_WIDTH*WINDOW_HEIGHT; i++) zbuffer[i] = INV_FAR_PLANE;
+
+	draw_mesh_test(canvas, zbuffer);
 }

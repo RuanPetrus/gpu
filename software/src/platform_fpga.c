@@ -28,6 +28,16 @@ typedef u8 PixelType;
 #define WINDOW_WIDTH 160
 #define WINDOW_HEIGHT 120
 
+u32 get_time()
+{
+	u32 value ;
+	__asm__ volatile ("csrr    %0, time" 
+					  : "=r" (value)  /* output : register */
+					  : /* input : none */
+					  : /* clobbers: none */);
+	return value;
+}
+
 #include "game.c"
 
 #define KBDCRL  (*(volatile u32 *)0xFF200000)
@@ -40,15 +50,6 @@ typedef u8 PixelType;
 canvas_ptr canvas;
 canvas_ptr back_canvas;
 
-u32 get_time()
-{
-	u32 value ;
-	__asm__ volatile ("csrr    %0, time" 
-					  : "=r" (value)  /* output : register */
-					  : /* input : none */
-					  : /* clobbers: none */);
-	return value;
-}
 
 bool keyboard_event(char *key)
 {
@@ -83,8 +84,6 @@ GameState game;
 
 i32 main()
 {
-	u32 last_time = get_time();
-
 	CURRENT_DISPLAY_FRAME_ADRESS = 0;
 	canvas = ((canvas_ptr)CANVAS0_ADDR);
 	back_canvas = ((canvas_ptr)CANVAS1_ADDR);
@@ -92,18 +91,11 @@ i32 main()
 	for (int i = 0; i < 320*240; i++) canvas[i] = BLACK;
 	for (int i = 0; i < 320*240; i++) back_canvas[i] = BLACK;
 
-	game_init(&game);
-	game_draw(&game, canvas);
-	return 0;
-	
     while (true) {
-		u32 current_time = get_time();
-		f32 dt = (current_time - last_time) * 0.001f;
-		last_time = current_time;
-
-	    update_control(&game);
-		game_update(&game, dt);
-		game_draw(&game, back_canvas);
+	    // update_control(&game);
+		// game_update(&game, dt);
+		// game_draw(&game, back_canvas);
+		game_draw_test(back_canvas);
 
 		swap_buffer();
 	}

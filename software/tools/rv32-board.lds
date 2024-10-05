@@ -16,11 +16,13 @@ SECTIONS {
     } > TEXT
 
     .data : {
+	. = ALIGN(4);
+	__global_pointer$ = . + 0x800;
 	*(.srodata .srodata.*)
 	*(.sdata .sdata.* .sdata2.*)
 	*(.rodata rodata.*)
-	__global_pointer$ = . + 0x800;
 	*(.data .data.*)
+	*(.edata .edata.*)
 	. = ALIGN(4);
     } > DATA
 
