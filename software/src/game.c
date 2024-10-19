@@ -7,7 +7,6 @@
 #define INV_NEAR_PLANE ((1 << Z_FRACTION_BITS) * (1.0f/NEAR_PLANE))
 #define INV_FAR_PLANE ((1 << Z_FRACTION_BITS) * (1.0f/FAR_PLANE))
 
-
 typedef struct Vec2 Vec2;
 struct Vec2 {
 	f32 x, y;
