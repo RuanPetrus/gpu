@@ -19,22 +19,10 @@ module GenTrianglePointsZbuffer(
 				i_v1, i_v2, i_v3, // Values must be 28.4 fixed point
 				i_iz1, i_iz2, i_iz3, // This should be 1/z in 16.16 fixed point
 
-				// Assuming Zbuffer memory 1 cycle write, 2 cycles read
+				// Assuming Zbuffer memory 1 cycle write, 1 cycle read
 				i_zbuffer_data,
 				o_zbuffer_addr, o_zbuffer_data,
 
-				state, // Debug
-				ahead_zbuffer_data, curr_zbuffer_data,
-				x, y,
-				minx, miny,
-				maxx, maxy,
-				minxf, minyf, maxxf, maxyf,
-				y1, y2, y3,
-				fdzx, fdzy, eqzinit,
-				fdzxt, fdzyt, eqzyt, fdzyt_temp,
-				area, areat,
-				dz13, dz23,
-				dx21, dx32, dx13, dx31, dy21, dy32, dy13, dy31,
 				o_write, o_done, o_point
 				);
    parameter SCREEN_WIDTH = 320;
@@ -52,13 +40,13 @@ module GenTrianglePointsZbuffer(
    output reg [31:0] o_point; // {y, x} int 16 bits each
 
    reg signed [31:0] x1, x2, x3;
-   output reg signed [31:0] y1, y2, y3;
+   reg signed [31:0] y1, y2, y3;
    reg signed [31:0] next_x1, next_x2, next_x3;
    reg signed [31:0] next_y1, next_y2, next_y3;
    wire		     order_expr;
 
    // output reg [3:0]	     state;
-   output reg [3:0]	     state;
+   reg [3:0]	     state;
    reg [3:0]	     next_state;
 
    wire		     point_inside;
@@ -66,9 +54,9 @@ module GenTrianglePointsZbuffer(
    reg		     next_o_done;
    reg [31:0]	     next_o_point;
 
-   output wire signed [31:0] minxf, minyf, maxxf, maxyf;
-   output wire signed [31:0] minx, miny, maxx, maxy;
-   output wire signed [31:0] dx21, dx32, dx13, dx31, dy21, dy32, dy13, dy31;
+   wire signed [31:0] minxf, minyf, maxxf, maxyf;
+   wire signed [31:0] minx, miny, maxx, maxy;
+   wire signed [31:0] dx21, dx32, dx13, dx31, dy21, dy32, dy13, dy31;
 
    wire signed [31:0] fdx21, fdx32, fdx13, fdy21, fdy32, fdy13;
    wire signed [31:0] eq1init, eq2init, eq3init;
@@ -78,10 +66,10 @@ module GenTrianglePointsZbuffer(
    reg signed [31:0]  eq1y, eq2y, eq3y, eq1x, eq2x, eq3x;
    reg signed [31:0]  next_eq1y, next_eq2y, next_eq3y, next_eq1x, next_eq2x, next_eq3x;
 
-   output reg signed [31:0]  x, y;
+   reg signed [31:0]  x, y;
    reg signed [31:0]  next_x, next_y;
 
-   output reg signed [31:0]  ahead_zbuffer_data, curr_zbuffer_data;
+   reg signed [31:0]  ahead_zbuffer_data;
 
    reg signed [31:0]  next_o_zbuffer_data;
 
@@ -125,7 +113,6 @@ module GenTrianglePointsZbuffer(
       o_point <= next_o_point;
 
       ahead_zbuffer_data <= i_zbuffer_data;
-      curr_zbuffer_data <= ahead_zbuffer_data;
 
 	  o_zbuffer_data <= next_o_zbuffer_data;
 
@@ -252,11 +239,11 @@ module GenTrianglePointsZbuffer(
    reg signed [31:0] iz1, iz2, iz3;
    reg signed [31:0] next_iz1, next_iz2, next_iz3;
 
-   output wire signed [31:0] dz13, dz23;
-   output wire signed [63:0] areat, area;
-   output wire signed [63:0] fdzxt, fdzyt, eqzyt, fdzyt_temp;
+   wire signed [31:0] dz13, dz23;
+   wire signed [63:0] areat, area;
+   wire signed [63:0] fdzxt, fdzyt, eqzyt, fdzyt_temp;
    wire signed [31:0] eqzinit_temp;
-   output wire signed [31:0] fdzx, fdzy, eqzinit;
+   wire signed [31:0] fdzx, fdzy, eqzinit;
    
    assign dz13 = iz1 - iz3;
    assign dz23 = iz2 - iz3;

@@ -3,7 +3,7 @@
 #include <GLFW/glfw3.h>
 #include "VGenTrianglePointsZbuffer.h"
 
-const int START_SIGNAL_TIME = 4;
+const int START_SIGNAL_TIME = 1;
 
 #define WINDOW_WIDTH 320
 #define WINDOW_STRIDE 320
@@ -35,17 +35,6 @@ void circuit_draw(
 	tb->i_iz2 = iz2;
 	tb->i_iz3 = iz3;
 
-	// fprintf(stderr, "v1 >> 32: %ld\n", v1 >> 32);
-	// fprintf(stderr, "v2 >> 32: %ld\n", v2 >> 32);
-	// fprintf(stderr, "v3 >> 32: %ld\n", v3 >> 32);
-
-	// fprintf(stderr, "y1: %d\n", y1);
-	// fprintf(stderr, "y2: %d\n", y2);
-	// fprintf(stderr, "y3: %d\n", y3);
-	// fprintf(stderr, "x1: %d\n", x1);
-	// fprintf(stderr, "x2: %d\n", x2);
-	// fprintf(stderr, "x3: %d\n", x3);
-
 	bool start = false;
 	bool finished = false;
 	int32_t count = 0;
@@ -55,6 +44,7 @@ void circuit_draw(
 
 		// tb->i_zbuffer_data = tb->o_zbuffer_addr;
 		tb->i_zbuffer_data = zbuffer[tb->o_zbuffer_addr];
+		tick(tb);
 
 		// fprintf(stderr, "state: %d\n",       tb->state);
 		// fprintf(stderr, "o_zbuffer_addr: %d\n",       tb->o_zbuffer_addr);
@@ -69,9 +59,6 @@ void circuit_draw(
 		// fprintf(stderr, "tb->y1=%d tb->y2=%d tb->y3=%d\n",   tb->y1, tb->y2, tb->y3);
 		// fprintf(stderr, "tb->y=%d tb->x=%d\n",       tb->y, tb->x);
 
-		tick(tb);
-
-
 		// fprintf(stderr, "-------- Step %d -----\n", k);
 		// fprintf(stderr, "Done: %d\n",       tb->o_done);
 		// fprintf(stderr, "Fifo Write: %d\n", tb->o_write);
@@ -82,28 +69,12 @@ void circuit_draw(
 
 		// fprintf(stderr, "\n");
 
-		// if (tb->state == 5) {
-		// 	fprintf(stderr, "---Circuit------\n");
-		// 	fprintf(stderr, "fdzx %d, fdzy %d, eqzinit %d\n",  tb->fdzx, tb->fdzy, tb->eqzinit);
-		// 	fprintf(stderr, "fdzxt %ld, fdzyt %ld, zd1 %ld\n",  tb->fdzxt, tb->fdzyt, tb->eqzyt);
-		// 	fprintf(stderr, "area %ld\n",  tb->area);
-		// 	fprintf(stderr, "fdzyt_temp %ld\n",  tb->fdzyt_temp);
-		// 	fprintf(stderr, "dz13 %d, dx32 %d, dz23 %d, dx13 %d\n",  tb->dz13, tb->dx32, tb->dz23, tb->dx13);
-		// 	break;
-		// }
-
 		if (tb->o_write) {
-			uint32_t y = (tb->o_point >> 16) & 0xFFFF;
-			uint32_t x = (tb->o_point >> 0)  & 0xFFFF;
+			int32_t y = (tb->o_point >> 16) & 0xFFFF;
+			int32_t x = (tb->o_point >> 0)  & 0xFFFF;
 
-			if (y >= WINDOW_HEIGHT) {
-				fprintf(stderr, "bad y = %u\n", y);
-				exit(1);
-			}
-			if (x >= WINDOW_WIDTH) {
-				fprintf(stderr, "bad x = %u\n", x);
-				exit(1);
-			}
+			assert(0 <= y && y < WINDOW_HEIGHT);
+			assert(0 <= x && x < WINDOW_WIDTH);
 
 			zbuffer[y*WINDOW_WIDTH + x] = tb->o_zbuffer_data;
 			canvas[y*WINDOW_WIDTH + x] = color;
@@ -111,9 +82,9 @@ void circuit_draw(
 		if (start && tb->o_done) finished = true;
 		count += start;
 	}
-	// printf("Circuit finished drawing");
-	// printf("Circuit took %d cycles\n", count);
 	delete tb;
+	printf("Circuit finished drawing");
+	printf("Circuit took %d cycles\n", count);
 }
 
 typedef uint32_t  u32;
@@ -360,14 +331,6 @@ void draw_triangle(Vec2 v1, Vec2 v2, Vec2 v3,
 
 	i32 eqz = z3 + shift_right_round(zd1, 16);
 
-	// fprintf(stderr, "----- Draw triangle \n",  fdzxt, fdzyt, zd1);
-	// fprintf(stderr, "fdzx %d, fdzy %d, eqzinit %d\n",  fdzx, fdzy, eqz);
-	// fprintf(stderr, "fdzxt %ld, fdzyt %ld, zd1 %ld\n",  fdzxt, fdzyt, zd1);
-	// fprintf(stderr, "fdzyt_temp%ld\n",  ((i64)dz13*dx32 + (i64)dz23*dx13));
-	// fprintf(stderr, "dz13 %d, dx32 %d, dz23 %d, dx13 %d\n",  dz13, dx32, dz23, dx13);
-	// fprintf(stderr, "area %d\n",  area);
-
-
 	// Correct for fill convention
     // if(dy21 < 0 || (dy21 == 0 && dx21 > 0)) eq1y++;
     // if(dy32 < 0 || (dy32 == 0 && dx32 > 0)) eq2y++;
@@ -430,15 +393,6 @@ void draw_mesh(GameState *game, canvas_ptr canvas, i32 *zbuffer)
 	translation_transform.dy = -game->player.pos.y;
 	translation_transform.dz = -game->player.pos.z;
 
-	i32* zbuffer2 = (i32*) malloc(WINDOW_WIDTH * WINDOW_HEIGHT * sizeof(*zbuffer));
-	canvas_ptr canvas2 = (canvas_ptr) malloc(WINDOW_WIDTH * WINDOW_HEIGHT * sizeof(*canvas));
-
-	for (int i = 0; i < WINDOW_HEIGHT; i++) 
-		for (int j = 0; j < WINDOW_WIDTH; j++)
-			canvas2[i*WINDOW_STRIDE + j] = WHITE;
-
-	for (int i= 0; i < WINDOW_WIDTH*WINDOW_HEIGHT; i++) zbuffer2[i] = INV_FAR_PLANE;
-
 	f32 tetay = game->player.rot.y;
 	f32 tetax = game->player.rot.x;
 
@@ -488,68 +442,13 @@ void draw_mesh(GameState *game, canvas_ptr canvas, i32 *zbuffer)
 		int32_t iz2 = 1.0f/tv2.z * (1 << Z_FRACTION_BITS);
 		int32_t iz3 = 1.0f/tv3.z * (1 << Z_FRACTION_BITS);
 
-		printf("pv1.x=%f pv1.y=%f\n", pv1.x, pv1.y);
-		printf("pv2.x=%f pv2.y=%f\n", pv2.x, pv2.y);
-		printf("pv3.x=%f pv3.y=%f\n", pv3.x, pv3.y);
-
-		printf("tv1.z=%f tv2.z=%f tv3.z=%f\n\n", tv1.z, tv2.z, tv3.z);
-
-		// draw_triangle(pv1, pv2, pv3, 
-		// 			  1.0f/tv1.z, 1.0f/tv2.z, 1.0f/tv3.z,
-		// 			  colors[i%colors_count],
-		// 			  zbuffer2,
-		// 			  canvas2);
-
 		circuit_draw(
 				  x1,  x2, x3,
 				  y1,  y2, y3,
 				  iz1, iz2, iz3,
 				  canvas, zbuffer, colors[i%colors_count]);
 
-		// fprintf(stderr, "\n");
-		// fprintf(stderr, "\n");
-
-		// printf("zbuffer1 %d\n", i);
-		// for (int y = 0; y < WINDOW_HEIGHT; y++) {
-		// 	for (int x = 0; x < WINDOW_WIDTH; x++) {
-		// 		if (zbuffer[y*WINDOW_WIDTH+x] == zbuffer2[y*WINDOW_WIDTH+x]) {
-		// 			if (zbuffer[y*WINDOW_WIDTH+x] == 4096) printf(" ");
-		// 			else                                   printf("#");
-		// 		}
-		// 		else {
-		// 			printf("(%d, %d) ", zbuffer[y*WINDOW_WIDTH+x], zbuffer2[y*WINDOW_WIDTH+x]);
-		// 			// printf("A");
-		// 		}
-		// 	}
-		// 	printf("\n");
-		// }
-		//printf("zbuffer2\n");
-		//for (int y = 0; y < WINDOW_HEIGHT; y++) {
-		//	for (int x = 0; x < WINDOW_WIDTH; x++) {
-		//		printf("%d ", zbuffer2[y*WINDOW_WIDTH+x]);
-		//	}
-		//	printf("\n");
-		//}
-		// for (int y = 0; y < WINDOW_HEIGHT; y++) {
-		// 	for (int x = 0; x < WINDOW_WIDTH; x++) {
-		// 		if (zbuffer[y*WINDOW_WIDTH+x] != zbuffer2[y*WINDOW_WIDTH+x]) {
-		// 			printf("zbuffer mismatch (%d, %d, %d) (%d, %d)\n", x, y, i, zbuffer[y*WINDOW_WIDTH+x], zbuffer2[y*WINDOW_WIDTH+x]);
-		// 			exit(1);
-		// 		}
-		// 	}
-		// }
-
-		// for (int y = 0; y < WINDOW_HEIGHT; y++) {
-		// 	for (int x = 0; x < WINDOW_WIDTH; x++) {
-		// 		if (canvas[y*WINDOW_WIDTH+x] != canvas2[y*WINDOW_WIDTH+x]) {
-		// 			printf("canvas mismatch (%d, %d, %d)\n", x, y, i);
-		// 			exit(1);
-		// 		}
-		// 	}
-		// }
 	}
-	// printf("\n");
-	// exit(1);
 }
 
 void game_init(GameState *game) 
@@ -589,7 +488,7 @@ void game_draw(GameState *game, canvas_ptr canvas)
 	draw_mesh(game, canvas, zbuffer);
 }
 
-GameState game = {0};
+GameState game;
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -655,45 +554,6 @@ i32 main(int argc, char **argv)
 
 		glClearColor(1, 0, 1, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
-
-		// f32 fx1 = 1.0f/4.0f * WINDOW_WIDTH;
-		// f32 fx2 = 3.0f/4.0f * WINDOW_WIDTH;
-		// f32 fx3 = 2.0f/4.0f * WINDOW_WIDTH;
-
-		// int32_t x1 =  fx1 * 16.0f;
-		// int32_t x2 =  fx2 * 16.0f;
-		// int32_t x3 =  fx3 * 16.0f;
-
-		// f32 fy1 = 3.0f/4.0f * WINDOW_HEIGHT;
-		// f32 fy2 = 3.0f/4.0f * WINDOW_HEIGHT;
-		// f32 fy3 = 1.0f/4.0f * WINDOW_HEIGHT;
-
-		// int32_t y1 = fy1 * 16.0f;
-		// int32_t y2 = fy2 * 16.0f;
-		// int32_t y3 =  fy3 * 16.0f;
-
-		// f32 fz1 = 1.0f;
-		// f32 fz2 = 4.0f;
-		// f32 fz3 = 4.0f;
-
-		// int32_t iz1 = 1/fz1 * (1 << 16);
-		// int32_t iz2 = 1/fz2 * (1 << 16);
-		// int32_t iz3 = 1/fz3 * (1 << 16);
-
-		// for (int i = 0; i < WINDOW_HEIGHT; i++) 
-		// 	for (int j = 0; j < WINDOW_WIDTH; j++) {
-		// 		canvas[i*WINDOW_STRIDE + j] = WHITE;
-		// 	}
-		// for (int i= 0; i < WINDOW_WIDTH*WINDOW_HEIGHT; i++) {
-		// 	zb1[i] = INV_FAR_PLANE;
-		// }
-
-		// circuit_draw(
-		// 			x1, x2, x3,
-		// 			y1, y2, y3,
-		// 			iz1, iz2, iz3,
-		// 			canvas, zb1, GREEN
-		// 			);
 
 		game_draw(&game, canvas);
 
