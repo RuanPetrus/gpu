@@ -17,13 +17,14 @@ void tick(VGenTrianglePointsZbuffer *tb) {
 	tb->eval();
 }
 
+VGenTrianglePointsZbuffer *tb = new VGenTrianglePointsZbuffer;
+
 void circuit_draw(
 				  int32_t x1, int32_t x2, int32_t x3,
 				  int32_t y1, int32_t y2, int32_t y3,
 				  int32_t iz1, int32_t iz2, int32_t iz3,
 				  uint32_t *canvas, int32_t *zbuffer, uint32_t color) {
 
-	VGenTrianglePointsZbuffer *tb = new VGenTrianglePointsZbuffer;
 
 	uint64_t v1 = ((uint64_t) ((uint32_t) y1) << 32) | ((uint32_t) x1);
 	uint64_t v2 = ((uint64_t) ((uint32_t) y2) << 32) | ((uint32_t) x2);
@@ -38,6 +39,7 @@ void circuit_draw(
 	bool start = false;
 	bool finished = false;
 	int32_t count = 0;
+	assert(tb->o_done == 1);
 	for (int k = 0; !finished; k++) {
 		if (START_SIGNAL_TIME == k) tb->i_start = 1, start = true;
 		else                        tb->i_start = 0;
@@ -82,9 +84,6 @@ void circuit_draw(
 		if (start && tb->o_done) finished = true;
 		count += start;
 	}
-	delete tb;
-	printf("Circuit finished drawing");
-	printf("Circuit took %d cycles\n", count);
 }
 
 typedef uint32_t  u32;
@@ -542,6 +541,7 @@ i32 main(int argc, char **argv)
 	static i32 zb1[WINDOW_STRIDE*WINDOW_HEIGHT];
 
 	Verilated::commandArgs(argc, argv);
+	tb->o_done = 1;
 
     while (!glfwWindowShouldClose(window)) {
 		double current_time = glfwGetTime();
