@@ -43,6 +43,8 @@ void circuit_draw(
 		else                        tb->i_start = 0;
 
 		tb->i_zbuffer_data = zbuffer[tb->o_zbuffer_addr];
+		fprintf(stderr, "state: %d\n",       tb->state);
+		fprintf(stderr, "o_zbuffer_addr: %d\n",       tb->o_zbuffer_addr);
 		tick(tb);
 
 		// fprintf(stderr, "-------- Step %d -----\n", k);

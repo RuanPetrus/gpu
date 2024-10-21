@@ -10,9 +10,9 @@
 `define MAX(a, b) ((a) > (b) ? (a) : (b))
 `define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-`define SHIFT_RIGHT_ROUND(a, b) (((a) + ((1 << (b)) -1)) >> (b))
-`define INV_NEAR_PLANE 327680
-`define INV_FAR_PLANE 4096
+`define SHIFT_RIGHT_ROUND(a, b) (((a) + ((1 << (b)) -1)) >>> (b))
+`define INV_NEAR_PLANE 32'sd327680
+`define INV_FAR_PLANE 32'sd4096
 
 module GenTrianglePointsZbuffer(
 				i_clk, i_start, 
@@ -23,6 +23,18 @@ module GenTrianglePointsZbuffer(
 				i_zbuffer_data,
 				o_zbuffer_addr, o_zbuffer_data,
 
+				state, // Debug
+				ahead_zbuffer_data, curr_zbuffer_data,
+				x, y,
+				minx, miny,
+				maxx, maxy,
+				minxf, minyf, maxxf, maxyf,
+				y1, y2, y3,
+				fdzx, fdzy, eqzinit,
+				fdzxt, fdzyt, eqzyt, fdzyt_temp,
+				area, areat,
+				dz13, dz23,
+				dx21, dx32, dx13, dx31, dy21, dy32, dy13, dy31,
 				o_write, o_done, o_point
 				);
    parameter SCREEN_WIDTH = 320;
@@ -40,12 +52,13 @@ module GenTrianglePointsZbuffer(
    output reg [31:0] o_point; // {y, x} int 16 bits each
 
    reg signed [31:0] x1, x2, x3;
-   reg signed [31:0] y1, y2, y3;
+   output reg signed [31:0] y1, y2, y3;
    reg signed [31:0] next_x1, next_x2, next_x3;
    reg signed [31:0] next_y1, next_y2, next_y3;
    wire		     order_expr;
 
-   reg [3:0]	     state;
+   // output reg [3:0]	     state;
+   output reg [3:0]	     state;
    reg [3:0]	     next_state;
 
    wire		     point_inside;
@@ -53,9 +66,9 @@ module GenTrianglePointsZbuffer(
    reg		     next_o_done;
    reg [31:0]	     next_o_point;
 
-   wire signed [31:0] minxf, minyf, maxxf, maxyf;
-   wire signed [31:0] minx, miny, maxx, maxy;
-   wire signed [31:0] dx21, dx32, dx13, dx31, dy21, dy32, dy13, dy31;
+   output wire signed [31:0] minxf, minyf, maxxf, maxyf;
+   output wire signed [31:0] minx, miny, maxx, maxy;
+   output wire signed [31:0] dx21, dx32, dx13, dx31, dy21, dy32, dy13, dy31;
 
    wire signed [31:0] fdx21, fdx32, fdx13, fdy21, fdy32, fdy13;
    wire signed [31:0] eq1init, eq2init, eq3init;
@@ -65,12 +78,12 @@ module GenTrianglePointsZbuffer(
    reg signed [31:0]  eq1y, eq2y, eq3y, eq1x, eq2x, eq3x;
    reg signed [31:0]  next_eq1y, next_eq2y, next_eq3y, next_eq1x, next_eq2x, next_eq3x;
 
-   reg signed [31:0]  x, y;
+   output reg signed [31:0]  x, y;
    reg signed [31:0]  next_x, next_y;
 
-   reg signed [31:0]  ahead_zbuffer_data, curr_zbuffer_data;
+   output reg signed [31:0]  ahead_zbuffer_data, curr_zbuffer_data;
 
-   reg [31:0]		  next_o_zbuffer_data;
+   reg signed [31:0]  next_o_zbuffer_data;
 
    wire [16:0]		  zbuffer_init, zbuffer_max;
    reg [16:0]		  zbuffer_x, zbuffer_y;
@@ -111,8 +124,8 @@ module GenTrianglePointsZbuffer(
 
       o_point <= next_o_point;
 
-      curr_zbuffer_data <= ahead_zbuffer_data;
       ahead_zbuffer_data <= i_zbuffer_data;
+      curr_zbuffer_data <= ahead_zbuffer_data;
 
 	  o_zbuffer_data <= next_o_zbuffer_data;
 
@@ -141,10 +154,17 @@ module GenTrianglePointsZbuffer(
    always @(*)  begin
       if      (state == `S_START)   next_state = `S_ORDER;
       else if (state == `S_ORDER)   next_state = `S_INIT_EQ;
-      else if (state == `S_INIT_EQ) next_state = `S_INIT_ZBUFFER;
+      else if (state == `S_INIT_EQ) begin
+		 if ((iz1 <= 0 || iz1 > `INV_NEAR_PLANE) && 
+	 		 (iz2 <= 0 || iz2 > `INV_NEAR_PLANE) && 
+	 		 (iz3 <= 0 || iz3 > `INV_NEAR_PLANE)) next_state = `S_IDLE;
+		 
+		 else next_state = `S_INIT_ZBUFFER;
+	  end
+
       else if (state == `S_INIT_ZBUFFER) next_state = `S_FIND_POINT;
       else if (state == `S_FIND_POINT) begin
-		 if (x +1 == maxx && y + 1 == maxy) next_state = `S_IDLE;
+		 if (x +1 >= maxx && y + 1 >= maxy) next_state = `S_IDLE;
 		 else                               next_state = `S_FIND_POINT;
       end
       else next_state = state;
@@ -155,13 +175,20 @@ module GenTrianglePointsZbuffer(
    initial o_write = 0;
    initial zbuffer_x = 0;
 
-   assign point_inside = (eq1x > 0 && eq2x > 0 && eq3x > 0 && curr_zbuffer_data < eqzx && eqzx < `INV_NEAR_PLANE);
+   // assign point_inside = (eq1x > 0 && eq2x > 0 && eq3x > 0 && curr_zbuffer_data < eqzx && eqzx < `INV_NEAR_PLANE);
+   assign point_inside = (eq1x > 0 && eq2x > 0 && eq3x > 0 
+						  && ahead_zbuffer_data < eqzx && eqzx < `INV_NEAR_PLANE
+						  && 0 <= x && x < SCREEN_WIDTH && 0 <= y && y < SCREEN_HEIGHT);
 
    // assign point_inside = (eq1x > 0 && eq2x > 0 && eq3x > 0 && curr_zbuffer_data >= 0);
 
    always @(*) begin
       // Done
-      if (state == `S_IDLE || (state == `S_FIND_POINT && x +1 == maxx && y + 1 == maxy))
+      if (state == `S_IDLE 
+		  || (state == `S_FIND_POINT && x +1 >= maxx && y + 1 >= maxy)
+		  || (state == `S_INIT_EQ && ((iz1 <= 0 || iz1 > `INV_NEAR_PLANE) && 
+	 								  (iz2 <= 0 || iz2 > `INV_NEAR_PLANE) && 
+	 								  (iz3 <= 0 || iz3 > `INV_NEAR_PLANE)))) 
 		next_o_done = 1;
       else next_o_done = 0;
 
@@ -180,10 +207,10 @@ module GenTrianglePointsZbuffer(
 
    // x, y related logic
    assign minxf = `MIN(`MIN(x1, x2), x3);
-   assign minx = `MAX((minxf + 32'sh0F) >>> 4, 0);
+   assign minx = `MAX((minxf + 32'sh0F) >>> 4, 32's0);
 
    assign minyf = `MIN(`MIN(y1, y2), y3);
-   assign miny = `MAX((minyf + 32'sh0F) >>> 4, 0);
+   assign miny = `MAX((minyf + 32'sh0F) >>> 4, 32's0);
 
    assign maxxf = `MAX(`MAX(x1, x2), x3);
    assign maxx = `MIN((maxxf + 32'sh0F) >>> 4, SCREEN_WIDTH);
@@ -225,29 +252,29 @@ module GenTrianglePointsZbuffer(
    reg signed [31:0] iz1, iz2, iz3;
    reg signed [31:0] next_iz1, next_iz2, next_iz3;
 
-   wire signed [31:0] dz13, dz23;
-   wire signed [63:0] areat, area;
-   wire signed [63:0] fdzxt, fdzyt, eqzyt;
-   wire signed [31:0] fdzx_temp, fdzy_temp, eqzinit_temp;
-   wire signed [31:0] fdzx, fdzy, eqzinit;
+   output wire signed [31:0] dz13, dz23;
+   output wire signed [63:0] areat, area;
+   output wire signed [63:0] fdzxt, fdzyt, eqzyt, fdzyt_temp;
+   wire signed [31:0] eqzinit_temp;
+   output wire signed [31:0] fdzx, fdzy, eqzinit;
    
    assign dz13 = iz1 - iz3;
    assign dz23 = iz2 - iz3;
 
    assign areat = dx21*dy31 - dy21 * dx31;
    assign area = (areat == 0 ? 1 : areat);
-   assign fdzxt = -((dz13*dy32 + dz23*dy13) << 16)/area;
-   assign fdzyt = ((dz13*dx32 + dz23*dx13) << 16)/area;
 
-   assign fdzx_temp = 32'`SHIFT_RIGHT_ROUND(fdzxt, 12);
-   assign fdzy_temp = 32'`SHIFT_RIGHT_ROUND(fdzyt, 12);
+   assign fdzyt_temp = dz13*dx32 + dz23*dx13;
+   
+   assign fdzxt = -((dz13*dy32 + dz23*dy13) <<< 16)/area;
+   assign fdzyt = (fdzyt_temp <<< 16)/area;
 
-   assign fdzx = fdzx_temp[31:0];
-   assign fdzy = fdzy_temp[31:0];
+   assign fdzx = 32'`SHIFT_RIGHT_ROUND(fdzxt, 12);
+   assign fdzy = 32'`SHIFT_RIGHT_ROUND(fdzyt, 12);
 
-   assign eqzyt = ((eq2y*dz13 + eq3y*dz23) << 16)/area;
+   assign eqzyt = ((eq2init*dz13 + eq3init*dz23) <<< 16)/area;
    assign eqzinit_temp = 32'`SHIFT_RIGHT_ROUND(eqzyt, 16);
-   assign eqzinit = iz3 + eqzinit_temp[31:0];
+   assign eqzinit = iz3 + eqzinit_temp;
 
    reg signed [31:0]  eqzx, eqzy;
    reg signed [31:0]  next_eqzy, next_eqzx;
@@ -272,7 +299,7 @@ module GenTrianglePointsZbuffer(
 		 next_eqzy = eqzinit;
 		 next_eqzx = eqzinit;
       end
-      else if (state == `S_FIND_POINT && x + 1 == maxx) begin
+      else if (state == `S_FIND_POINT && x + 1 >= maxx) begin
 		 next_x = minx;
 		 next_y = y + 1;
 
@@ -357,7 +384,7 @@ module GenTrianglePointsZbuffer(
 		 next_zbuffer_y = zbuffer_init;
       end
       else if (state == `S_INIT_ZBUFFER) begin
-		 if (zbuffer_x + 1 == zbuffer_max) begin
+		 if (zbuffer_x + 1 >= zbuffer_max) begin
 			next_zbuffer_x = zbuffer_y + SCREEN_WIDTH;
 			next_zbuffer_y = zbuffer_y + SCREEN_WIDTH;
 		 end
@@ -366,7 +393,7 @@ module GenTrianglePointsZbuffer(
 			next_zbuffer_y = zbuffer_y;
 		 end
 	  end
-      else if (state == `S_FIND_POINT && zbuffer_x + 1 == zbuffer_max) begin
+      else if (state == `S_FIND_POINT && zbuffer_x + 1 >= zbuffer_max) begin
 		 next_zbuffer_x = zbuffer_y + SCREEN_WIDTH;
 		 next_zbuffer_y = zbuffer_y + SCREEN_WIDTH;
       end

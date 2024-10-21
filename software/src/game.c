@@ -422,9 +422,6 @@ void game_draw(GameState *game, canvas_ptr canvas)
 
 	for (int i= 0; i < WINDOW_WIDTH*WINDOW_HEIGHT; i++) zbuffer[i] = INV_FAR_PLANE;
 
-	game->player.rot.x = 0.0f;
-	game->player.rot.y = 0.0f;
-
 	draw_mesh(game, canvas, zbuffer);
 }
 
